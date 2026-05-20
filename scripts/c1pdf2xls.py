@@ -3,24 +3,41 @@ import pdfplumber
 import re
 import argparse
 import glob
+import sys
 from datetime import datetime
 
-# --- CLI ARGUMENTS ---
-parser = argparse.ArgumentParser(description="Extract transactions from credit card PDFs")
+# --- CUSTOM HELP / DESCRIPTION ---
+parser = argparse.ArgumentParser(
+    prog="c1pdf2xlsx",
+    description="This utility converts Capital One PDF statements to an Excel Spreadsheet. vibecoded by Sovamind, 2026",
+    formatter_class=argparse.RawTextHelpFormatter
+)
 
-parser.add_argument("-i", "--input", nargs="+", help="Input PDF files (space separated)")
-parser.add_argument("-o", "--output", help="Output Excel file")
+parser.add_argument(
+    "-i", "--input",
+    nargs="+",
+    help="Input PDF files (space separated)"
+)
+
+parser.add_argument(
+    "-o", "--output",
+    help="Output Excel filename"
+)
 
 args = parser.parse_args()
 
-# --- INPUT FILES ---
+# --- INPUT HANDLING ---
 if args.input:
     files = args.input
 else:
     print("No input filenames supplied, looking for all PDFs in same folder")
     files = glob.glob("*.pdf")
 
-# --- OUTPUT FILE ---
+if not files:
+    print("Nothing to do")
+    sys.exit(-1)
+
+# --- OUTPUT HANDLING ---
 if args.output:
     output_file = args.output
 else:
@@ -43,7 +60,6 @@ def extract_years(text):
 def parse_date(month_day, start_year, end_year):
     month = datetime.strptime(month_day, "%b %d").month
 
-    # If spanning year boundary (Dec → Jan)
     if start_year != end_year:
         year = start_year if month == 12 else end_year
     else:
@@ -70,7 +86,6 @@ for file in files:
             for line in lines:
                 parts = line.split()
 
-                # Must look like: Mar 17 Mar 18 ... $123.45
                 if len(parts) < 6:
                     continue
 
@@ -99,9 +114,12 @@ for file in files:
                 except:
                     continue
 
-# --- FINAL DATAFRAME ---
-df = pd.DataFrame(rows)
+# --- FINALIZE DATA ---
+if not rows:
+    print("Nothing to do")
+    sys.exit(-1)
 
+df = pd.DataFrame(rows)
 df = df.drop_duplicates()
 df = df.sort_values("Transaction Date")
 
